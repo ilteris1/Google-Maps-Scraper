@@ -1,12 +1,12 @@
 # 🗺️ Google Maps & Yandex Maps Scraper
 
-Google Maps & Yandex Maps scraper supporting **ALL countries worldwide** with population-based city selection and custom search queries.
+Google Maps & Yandex Maps scraper supporting **ALL countries worldwide** with population-based city selection and custom search queries. (Using terminal to support different operation systems.)
 
 ## ✨ Features
 
-- 🌍 **All Countries Worldwide** - Every country recognized by ISO 3166
+- 🌍 **All Countries Worldwide** - ISO 3166
 - 📊 **Population-Based Selection** - Automatically scrapes top N most populated cities
-- 🔍 **Custom Search Queries** - Search for anything: "Diesel Services", "Italian Restaurants", "Yoga Studios"
+- 🔍 **Custom Search Queries** - Search for anything: "Auto Services", "Turkish Restaurants"
 - 📈 **Comprehensive Data Extraction**:
   - Business Title
   - Rating (stars)
