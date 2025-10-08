@@ -1,6 +1,6 @@
 # 🗺️ Google Maps & Yandex Maps Scraper
 
-Google Maps & Yandex Maps scraper supporting **ALL countries worldwide** with population-based city selection and custom search queries. (Using terminal to support different operation systems.)
+Google Maps & Yandex Maps scraper supporting **ALL countries worldwide** with population-based city selection and custom search queries. (Using terminal to support different operation systems but I only tested in Linux.)
 
 ## ✨ Features
 
