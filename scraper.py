@@ -8,7 +8,7 @@ from selenium.webdriver.firefox.options import Options as FirefoxOptions
 import requests
 import zipfile
 import stat
-from config import IMPLICIT_WAIT, PAGE_LOAD_TIMEOUT, SCROLL_PAUSE_TIME, MAX_SCROLL_ATTEMPTS, CHROME_BINARY_PATH, MAX_PLACES_PER_CITY
+from config import IMPLICIT_WAIT, PAGE_LOAD_TIMEOUT, SCROLL_PAUSE_TIME, MAX_SCROLL_ATTEMPTS, CHROME_BINARY_PATH, MAX_PLACES_PER_CITY, EXTRACT_WAIT_TIME
 
 class GoogleMapsScraper:
     def __init__(self, headless=True, browser='auto'):
@@ -36,10 +36,16 @@ class GoogleMapsScraper:
             options.add_argument('--headless=new')
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
+        options.add_argument('--disable-gpu')
+        options.add_argument('--disable-software-rasterizer')
+        options.add_argument('--disable-extensions')
+        options.add_argument('--disable-images')
+        options.add_argument('--blink-settings=imagesEnabled=false')
         options.add_argument('--disable-blink-features=AutomationControlled')
-        options.add_argument('--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+        options.add_argument('--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36')
         options.add_experimental_option("excludeSwitches", ["enable-automation"])
         options.add_experimental_option('useAutomationExtension', False)
+        options.add_experimental_option('prefs', {'profile.managed_default_content_settings.images': 2})
         
         if CHROME_BINARY_PATH and os.path.exists(CHROME_BINARY_PATH):
             options.binary_location = CHROME_BINARY_PATH
@@ -107,14 +113,13 @@ class GoogleMapsScraper:
         
         try:
             self.driver.get(url)
-            time.sleep(2)
+            time.sleep(1.5)
             self._scroll_results()
             links = self._extract_place_links()
             if MAX_PLACES_PER_CITY:
                 return links[:MAX_PLACES_PER_CITY]
             return links
         except Exception as e:
-            print(f"Error searching {search_query}: {e}")
             return []
     
     def _scroll_results(self):
@@ -146,32 +151,46 @@ class GoogleMapsScraper:
         return links
     
     def extract_place_data(self, url):
-        try:
-            self.driver.get(url)
-            time.sleep(2)
-            
-            # Scroll to load all info
+        max_retries = 2
+        for attempt in range(max_retries):
             try:
-                self.driver.execute_script("window.scrollTo(0, 500);")
-                time.sleep(0.5)
-            except:
-                pass
-            
-            data = {
-                'title': self._safe_extract(self._get_title),
-                'rating': self._safe_extract(self._get_rating),
-                'reviews': self._safe_extract(self._get_reviews),
-                'category': self._safe_extract(self._get_category),
-                'address': self._safe_extract(self._get_address),
-                'website': self._safe_extract(self._get_website),
-                'phone': self._safe_extract(self._get_phone),
-                'image': self._safe_extract(self._get_image),
-                'link': url
-            }
-            return data
-        except Exception as e:
-            print(f"Error extracting data from {url}: {e}")
-            return None
+                self.driver.get(url)
+                time.sleep(EXTRACT_WAIT_TIME)
+                
+                try:
+                    self.driver.execute_script("window.scrollTo(0, 300);")
+                    time.sleep(0.3)
+                except:
+                    pass
+                
+                data = {
+                    'title': self._safe_extract(self._get_title),
+                    'rating': self._safe_extract(self._get_rating),
+                    'reviews': self._safe_extract(self._get_reviews),
+                    'category': self._safe_extract(self._get_category),
+                    'address': self._safe_extract(self._get_address),
+                    'website': self._safe_extract(self._get_website),
+                    'phone': self._safe_extract(self._get_phone),
+                    'link': url
+                }
+                return data
+            except Exception as e:
+                if 'tab crashed' in str(e) or 'session' in str(e).lower():
+                    if attempt < max_retries - 1:
+                        print(f"Tab crashed, restarting browser...")
+                        self._restart_driver()
+                        time.sleep(2)
+                        continue
+                return None
+        return None
+    
+    def _restart_driver(self):
+        try:
+            self.driver.quit()
+        except:
+            pass
+        time.sleep(1)
+        self.driver = self._setup_driver(True, 'chrome')
     
     def _safe_extract(self, func):
         try:
@@ -262,16 +281,6 @@ class GoogleMapsScraper:
                         return text
             except:
                 continue
-        return None
-    
-    def _get_image(self):
-        try:
-            img = self.driver.find_element(By.CSS_SELECTOR, 'button.aoRNLd img')
-            return img.get_attribute('src')
-        except:
-            imgs = self.driver.find_elements(By.CSS_SELECTOR, 'img.Liguzb')
-            if imgs:
-                return imgs[0].get_attribute('src')
         return None
     
     def close(self):

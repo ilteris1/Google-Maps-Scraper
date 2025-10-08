@@ -3,15 +3,30 @@ from datetime import datetime
 from colorama import Fore, Style, init
 from tqdm import tqdm
 from scraper import GoogleMapsScraper
+from yandex_scraper import YandexMapsScraper
 from geo_data import GeoDataManager
 
 init(autoreset=True)
 
 def print_banner():
     print(f"\n{Fore.CYAN}{'='*60}")
-    print(f"{Fore.CYAN}  Google Maps Scraper - Global Edition")
-    print(f"{Fore.CYAN}  All Countries | Population-Based Cities | Custom Queries")
+    print(f"{Fore.CYAN}  Maps Scraper - Global Edition")
+    print(f"{Fore.CYAN}  Google Maps & Yandex Maps | All Countries")
     print(f"{Fore.CYAN}{'='*60}{Style.RESET_ALL}\n")
+
+def select_map_service():
+    print(f"{Fore.YELLOW}Select map service:{Style.RESET_ALL}")
+    print(f"{Fore.GREEN}1.{Style.RESET_ALL} Google Maps (worldwide)")
+    print(f"{Fore.GREEN}2.{Style.RESET_ALL} Yandex Maps (best for Russia/CIS)")
+    
+    while True:
+        try:
+            choice = int(input(f"\n{Fore.CYAN}Select (1-2): {Style.RESET_ALL}"))
+            if choice in [1, 2]:
+                return choice
+        except ValueError:
+            pass
+        print(f"{Fore.RED}Invalid choice.{Style.RESET_ALL}")
 
 def select_country(geo):
     print(f"{Fore.YELLOW}Enter country name (or part of it):{Style.RESET_ALL}")
@@ -51,24 +66,18 @@ def get_city_count():
             print(f"{Fore.RED}Please enter a valid number.{Style.RESET_ALL}")
 
 def get_search_query():
-    print(f"\n{Fore.YELLOW}Enter search queries in ANY language (one per line):{Style.RESET_ALL}")
-    print(f"{Fore.CYAN}Tip: Use broad terms. Example for diesel services:{Style.RESET_ALL}")
-    print(f"{Fore.CYAN}  - auto repair{Style.RESET_ALL}")
-    print(f"{Fore.CYAN}  - автосервис{Style.RESET_ALL}")
-    print(f"{Fore.CYAN}  - truck repair{Style.RESET_ALL}")
-    print(f"{Fore.CYAN}  - ремонт грузовиков{Style.RESET_ALL}\n")
+    print(f"\n{Fore.YELLOW}Enter search query:{Style.RESET_ALL}")
+    print(f"{Fore.CYAN}Tip: Use broad category like 'auto repair', 'restaurants', 'hotels'{Style.RESET_ALL}\n")
     
-    queries = []
-    while True:
-        query = input(f"{Fore.CYAN}Query {len(queries)+1} (or Enter to finish): {Style.RESET_ALL}").strip()
-        if not query:
-            if queries:
-                break
-            print(f"{Fore.RED}Enter at least one query{Style.RESET_ALL}")
-            continue
-        queries.append(query)
+    query = input(f"{Fore.CYAN}Main query: {Style.RESET_ALL}").strip()
+    while not query:
+        query = input(f"{Fore.CYAN}Main query: {Style.RESET_ALL}").strip()
     
-    return queries
+    local = input(f"{Fore.CYAN}Local language query (or Enter to skip): {Style.RESET_ALL}").strip()
+    
+    if local:
+        return [query, local]
+    return [query]
 
 def select_output_format():
     print(f"\n{Fore.YELLOW}Output format:{Style.RESET_ALL}")
@@ -85,28 +94,30 @@ def select_output_format():
             pass
         print(f"{Fore.RED}Invalid choice.{Style.RESET_ALL}")
 
-def save_data(data, format_choice, country_name, search_query):
+def save_data(data, format_choice, country_name, first_query):
     if not data:
         print(f"{Fore.RED}No data to save.{Style.RESET_ALL}")
         return
     
     df = pd.DataFrame(data)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    safe_country = country_name.replace(' ', '_')
-    safe_query = search_query.replace(' ', '_')
+    safe_country = country_name.replace(' ', '_')[:30]
+    safe_query = first_query.replace(' ', '_')[:30]
     
     if format_choice in [1, 3]:
         csv_file = f"{safe_country}_{safe_query}_{timestamp}.csv"
         df.to_csv(csv_file, index=False, encoding='utf-8-sig')
-        print(f"{Fore.GREEN}✓ Saved: {csv_file}{Style.RESET_ALL}")
+        print(f"{Fore.GREEN}✓ Saved: {csv_file} ({len(data)} records){Style.RESET_ALL}")
     
     if format_choice in [2, 3]:
         json_file = f"{safe_country}_{safe_query}_{timestamp}.json"
         df.to_json(json_file, orient='records', indent=2, force_ascii=False)
-        print(f"{Fore.GREEN}✓ Saved: {json_file}{Style.RESET_ALL}")
+        print(f"{Fore.GREEN}✓ Saved: {json_file} ({len(data)} records){Style.RESET_ALL}")
 
 def main():
     print_banner()
+    
+    map_service = select_map_service()
     
     geo = GeoDataManager()
     
@@ -130,14 +141,20 @@ def main():
     
     input(f"\n{Fore.GREEN}Press Enter to start...{Style.RESET_ALL}")
     
-    scraper = GoogleMapsScraper(headless=True)
+    if map_service == 1:
+        scraper = GoogleMapsScraper(headless=True)
+        service_name = 'Google'
+    else:
+        scraper = YandexMapsScraper(headless=True)
+        service_name = 'Yandex'
+    
     all_data = []
     seen_links = set()
     
     try:
         for city in tqdm(cities, desc="Cities", colour="green"):
             for search_query in search_queries:
-                print(f"\n{Fore.CYAN}Scraping: {city}, {country_name} - '{search_query}'{Style.RESET_ALL}")
+                print(f"\n{Fore.CYAN}[{service_name}] Scraping: {city}, {country_name} - '{search_query}'{Style.RESET_ALL}")
                 
                 place_links = scraper.search_places(search_query, city, country_name)
                 new_links = [link for link in place_links if link not in seen_links]
@@ -149,22 +166,27 @@ def main():
                         place_data['city'] = city
                         place_data['country'] = country_name
                         place_data['search_query'] = search_query
+                        place_data['source'] = service_name
                         all_data.append(place_data)
                         seen_links.add(link)
+                        
+                        if len(all_data) % 50 == 0:
+                            save_data(all_data, output_format, country_name, search_queries[0])
+                            print(f"\n{Fore.YELLOW}Auto-saved {len(all_data)} records{Style.RESET_ALL}")
         
         print(f"\n{Fore.GREEN}✓ Completed!{Style.RESET_ALL}")
         print(f"Total places: {Fore.CYAN}{len(all_data)}{Style.RESET_ALL}")
         
-        save_data(all_data, output_format, country_name, '_'.join(search_queries))
+        save_data(all_data, output_format, country_name, search_queries[0])
         
     except KeyboardInterrupt:
         print(f"\n{Fore.YELLOW}Interrupted. Saving collected data...{Style.RESET_ALL}")
         if all_data:
-            save_data(all_data, output_format, country_name, '_'.join(search_queries))
+            save_data(all_data, output_format, country_name, search_queries[0])
     except Exception as e:
         print(f"\n{Fore.RED}Error: {e}{Style.RESET_ALL}")
         if all_data:
-            save_data(all_data, output_format, country_name, '_'.join(search_queries))
+            save_data(all_data, output_format, country_name, search_queries[0])
     finally:
         scraper.close()
 
