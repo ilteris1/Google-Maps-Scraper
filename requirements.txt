@@ -1,0 +1,7 @@
+selenium==4.16.0
+webdriver-manager==4.0.1
+pandas==2.1.4
+colorama==0.4.6
+tqdm==4.66.1
+pycountry==23.12.11
+geonamescache==2.0.0
