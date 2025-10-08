@@ -61,12 +61,24 @@ class GoogleMapsScraper:
         import os
         import subprocess
         import shutil
+        import platform
         
+        is_windows = platform.system() == 'Windows'
         driver_dir = os.path.expanduser('~/.chromedriver')
-        driver_path = os.path.join(driver_dir, 'chromedriver')
+        driver_name = 'chromedriver.exe' if is_windows else 'chromedriver'
+        driver_path = os.path.join(driver_dir, driver_name)
         
         # Get Chrome version
-        chrome_path = CHROME_BINARY_PATH or '/usr/bin/google-chrome'
+        if is_windows:
+            chrome_paths = [
+                'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+                'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+                os.path.expanduser('~\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe')
+            ]
+            chrome_path = next((p for p in chrome_paths if os.path.exists(p)), chrome_paths[0])
+        else:
+            chrome_path = CHROME_BINARY_PATH or '/usr/bin/google-chrome'
+        
         result = subprocess.run([chrome_path, '--version'], capture_output=True, text=True)
         chrome_version = result.stdout.strip().split()[-1].split('.')[0]
         
@@ -85,7 +97,13 @@ class GoogleMapsScraper:
         data = response.json()
         version = data['milestones'][chrome_version]['version']
         
-        url = f'https://storage.googleapis.com/chrome-for-testing-public/{version}/linux64/chromedriver-linux64.zip'
+        # Download for correct platform
+        if is_windows:
+            url = f'https://storage.googleapis.com/chrome-for-testing-public/{version}/win64/chromedriver-win64.zip'
+            folder_name = 'chromedriver-win64'
+        else:
+            url = f'https://storage.googleapis.com/chrome-for-testing-public/{version}/linux64/chromedriver-linux64.zip'
+            folder_name = 'chromedriver-linux64'
         
         zip_path = os.path.join(driver_dir, 'chromedriver.zip')
         response = requests.get(url, stream=True)
@@ -96,11 +114,12 @@ class GoogleMapsScraper:
         with zipfile.ZipFile(zip_path, 'r') as zip_ref:
             zip_ref.extractall(driver_dir)
         
-        extracted_driver = os.path.join(driver_dir, 'chromedriver-linux64', 'chromedriver')
+        extracted_driver = os.path.join(driver_dir, folder_name, driver_name)
         shutil.move(extracted_driver, driver_path)
-        os.chmod(driver_path, stat.S_IRWXU)
+        if not is_windows:
+            os.chmod(driver_path, stat.S_IRWXU)
         os.remove(zip_path)
-        shutil.rmtree(os.path.join(driver_dir, 'chromedriver-linux64'), ignore_errors=True)
+        shutil.rmtree(os.path.join(driver_dir, folder_name), ignore_errors=True)
         
         return driver_path
     
