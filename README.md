@@ -43,13 +43,6 @@ python main.py
 3. Enter custom search query (e.g., "Diesel Services", "Coffee Shops")
 4. Choose output format (CSV, JSON, or both)
 
-## 🎯 Use Cases
-
-- 🔧 **B2B Lead Generation** - Find "Diesel Services", "Industrial Equipment", "Wholesale Suppliers"
-- 🍕 **Market Research** - Analyze "Pizza Restaurants", "Vegan Cafes", "Luxury Hotels"
-- 📍 **Location Intelligence** - Map "EV Charging Stations", "Pharmacies", "Gyms"
-- 🏢 **Competitor Analysis** - Track businesses in specific industries
-- 📊 **Data Analytics** - Build datasets for business intelligence
 
 ## ⚙️ Configuration
 
