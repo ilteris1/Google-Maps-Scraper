@@ -1,6 +1,6 @@
-# 🗺️ Google Maps Scraper
+# 🗺️ Google Maps & Yandex Maps Scraper
 
-Professional Google Maps scraper supporting **ALL countries worldwide** with population-based city selection and custom search queries.
+Google Maps & Yandex Maps scraper supporting **ALL countries worldwide** with population-based city selection and custom search queries.
 
 ## ✨ Features
 
