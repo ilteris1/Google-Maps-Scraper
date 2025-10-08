@@ -26,7 +26,7 @@ Professional Google Maps scraper supporting **ALL countries worldwide** with pop
 ### Installation
 
 ```bash
-git clone https://github.com/yourusername/Google-Maps-Scraper.git
+git clone https://github.com/ilteris1/Google-Maps-Scraper.git
 cd Google-Maps-Scraper
 pip install -r requirements.txt
 ```
