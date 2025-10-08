@@ -18,11 +18,12 @@ def select_map_service():
     print(f"{Fore.YELLOW}Select map service:{Style.RESET_ALL}")
     print(f"{Fore.GREEN}1.{Style.RESET_ALL} Google Maps (worldwide)")
     print(f"{Fore.GREEN}2.{Style.RESET_ALL} Yandex Maps (best for Russia/CIS)")
+    print(f"{Fore.GREEN}3.{Style.RESET_ALL} Both (Google first, then Yandex)")
     
     while True:
         try:
-            choice = int(input(f"\n{Fore.CYAN}Select (1-2): {Style.RESET_ALL}"))
-            if choice in [1, 2]:
+            choice = int(input(f"\n{Fore.CYAN}Select (1-3): {Style.RESET_ALL}"))
+            if choice in [1, 2, 3]:
                 return choice
         except ValueError:
             pass
@@ -66,18 +67,21 @@ def get_city_count():
             print(f"{Fore.RED}Please enter a valid number.{Style.RESET_ALL}")
 
 def get_search_query():
-    print(f"\n{Fore.YELLOW}Enter search query:{Style.RESET_ALL}")
-    print(f"{Fore.CYAN}Tip: Use broad category like 'auto repair', 'restaurants', 'hotels'{Style.RESET_ALL}\n")
+    print(f"\n{Fore.YELLOW}Enter search queries (one per line, Enter twice to finish):{Style.RESET_ALL}")
+    print(f"{Fore.CYAN}Tip: Use specific terms for better results{Style.RESET_ALL}")
+    print(f"{Fore.CYAN}Example: 'diesel repair shop', 'diesel mechanic', 'ремонт дизеля'{Style.RESET_ALL}\n")
     
-    query = input(f"{Fore.CYAN}Main query: {Style.RESET_ALL}").strip()
-    while not query:
-        query = input(f"{Fore.CYAN}Main query: {Style.RESET_ALL}").strip()
+    queries = []
+    while True:
+        query = input(f"{Fore.CYAN}Query {len(queries)+1} (or Enter to finish): {Style.RESET_ALL}").strip()
+        if not query:
+            if queries:
+                break
+            print(f"{Fore.RED}Enter at least one query{Style.RESET_ALL}")
+            continue
+        queries.append(query)
     
-    local = input(f"{Fore.CYAN}Local language query (or Enter to skip): {Style.RESET_ALL}").strip()
-    
-    if local:
-        return [query, local]
-    return [query]
+    return queries
 
 def select_output_format():
     print(f"\n{Fore.YELLOW}Output format:{Style.RESET_ALL}")
@@ -93,6 +97,29 @@ def select_output_format():
         except ValueError:
             pass
         print(f"{Fore.RED}Invalid choice.{Style.RESET_ALL}")
+
+def group_by_phone(data):
+    """Group results by phone number - Yandex rows come after Google rows with same phone"""
+    phone_map = {}
+    no_phone = []
+    
+    for item in data:
+        phone = item.get('phone')
+        if phone:
+            if phone not in phone_map:
+                phone_map[phone] = []
+            phone_map[phone].append(item)
+        else:
+            no_phone.append(item)
+    
+    # Sort each phone group: Google first, then Yandex
+    result = []
+    for phone, items in phone_map.items():
+        items.sort(key=lambda x: 0 if x['source'] == 'Google' else 1)
+        result.extend(items)
+    
+    result.extend(no_phone)
+    return result
 
 def save_data(data, format_choice, country_name, first_query):
     if not data:
@@ -141,41 +168,70 @@ def main():
     
     input(f"\n{Fore.GREEN}Press Enter to start...{Style.RESET_ALL}")
     
-    if map_service == 1:
-        scraper = GoogleMapsScraper(headless=True)
-        service_name = 'Google'
-    else:
-        scraper = YandexMapsScraper(headless=True)
-        service_name = 'Yandex'
-    
     all_data = []
     seen_links = set()
+    seen_businesses = set()  # Track exact duplicates by title+phone+address
+    
+    # Determine which scrapers to use
+    scrapers_to_use = []
+    if map_service == 1:
+        scrapers_to_use = [('Google', GoogleMapsScraper)]
+    elif map_service == 2:
+        scrapers_to_use = [('Yandex', YandexMapsScraper)]
+    else:  # Both
+        scrapers_to_use = [('Google', GoogleMapsScraper), ('Yandex', YandexMapsScraper)]
+        seen_links = None  # Don't filter duplicates when using Both
     
     try:
-        for city in tqdm(cities, desc="Cities", colour="green"):
-            for search_query in search_queries:
-                print(f"\n{Fore.CYAN}[{service_name}] Scraping: {city}, {country_name} - '{search_query}'{Style.RESET_ALL}")
-                
-                place_links = scraper.search_places(search_query, city, country_name)
-                new_links = [link for link in place_links if link not in seen_links]
-                print(f"Found {len(new_links)} new places")
-                
-                for link in tqdm(new_links, desc=f"{city}", leave=False, colour="blue"):
-                    place_data = scraper.extract_place_data(link)
-                    if place_data:
-                        place_data['city'] = city
-                        place_data['country'] = country_name
-                        place_data['search_query'] = search_query
-                        place_data['source'] = service_name
-                        all_data.append(place_data)
-                        seen_links.add(link)
+        for service_name, ScraperClass in scrapers_to_use:
+            print(f"\n{Fore.CYAN}{'='*60}")
+            print(f"{Fore.CYAN}Starting {service_name} Maps scraping...")
+            print(f"{Fore.CYAN}{'='*60}{Style.RESET_ALL}\n")
+            
+            scraper = ScraperClass(headless=True)
+            
+            try:
+                for city in tqdm(cities, desc=f"{service_name} Cities", colour="green"):
+                    for search_query in search_queries:
+                        print(f"\n{Fore.CYAN}[{service_name}] Scraping: {city}, {country_name} - '{search_query}'{Style.RESET_ALL}")
                         
-                        if len(all_data) % 50 == 0:
-                            save_data(all_data, output_format, country_name, search_queries[0])
-                            print(f"\n{Fore.YELLOW}Auto-saved {len(all_data)} records{Style.RESET_ALL}")
+                        place_links = scraper.search_places(search_query, city, country_name)
+                        if seen_links is not None:
+                            new_links = [link for link in place_links if link not in seen_links]
+                        else:
+                            new_links = place_links
+                        print(f"Found {len(new_links)} new places")
+                        
+                        for link in tqdm(new_links, desc=f"{city}", leave=False, colour="blue"):
+                            place_data = scraper.extract_place_data(link)
+                            if place_data:
+                                # Create unique key from title+phone+address
+                                unique_key = f"{place_data.get('title', '')}|{place_data.get('phone', '')}|{place_data.get('address', '')}"
+                                
+                                if unique_key not in seen_businesses:
+                                    place_data['city'] = city
+                                    place_data['country'] = country_name
+                                    place_data['search_query'] = search_query
+                                    place_data['source'] = service_name
+                                    all_data.append(place_data)
+                                    seen_businesses.add(unique_key)
+                                    if seen_links is not None:
+                                        seen_links.add(link)
+                                
+                                if len(all_data) % 50 == 0:
+                                    save_data(all_data, output_format, country_name, search_queries[0])
+                                    print(f"\n{Fore.YELLOW}Auto-saved {len(all_data)} records{Style.RESET_ALL}")
+            finally:
+                scraper.close()
+                print(f"\n{Fore.GREEN}✓ {service_name} completed! Total so far: {len(all_data)}{Style.RESET_ALL}")
         
-        print(f"\n{Fore.GREEN}✓ Completed!{Style.RESET_ALL}")
+        print(f"\n{Fore.GREEN}✓ All scraping completed!{Style.RESET_ALL}")
         print(f"Total places: {Fore.CYAN}{len(all_data)}{Style.RESET_ALL}")
+        
+        # If Both option, group by phone number
+        if map_service == 3:
+            all_data = group_by_phone(all_data)
+            print(f"{Fore.YELLOW}Grouped by phone number{Style.RESET_ALL}")
         
         save_data(all_data, output_format, country_name, search_queries[0])
         
@@ -187,8 +243,6 @@ def main():
         print(f"\n{Fore.RED}Error: {e}{Style.RESET_ALL}")
         if all_data:
             save_data(all_data, output_format, country_name, search_queries[0])
-    finally:
-        scraper.close()
 
 if __name__ == "__main__":
     main()
