@@ -3,11 +3,6 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service as ChromeService
 from selenium.webdriver.chrome.options import Options as ChromeOptions
-from selenium.webdriver.firefox.service import Service as FirefoxService
-from selenium.webdriver.firefox.options import Options as FirefoxOptions
-import requests
-import zipfile
-import stat
 from config import IMPLICIT_WAIT, PAGE_LOAD_TIMEOUT, SCROLL_PAUSE_TIME, MAX_SCROLL_ATTEMPTS, CHROME_BINARY_PATH, MAX_PLACES_PER_CITY, EXTRACT_WAIT_TIME
 
 class GoogleMapsScraper:
@@ -31,6 +26,8 @@ class GoogleMapsScraper:
     def _setup_chrome(self, headless):
         import os
         import platform
+        from webdriver_manager.chrome import ChromeDriverManager
+        
         is_windows = platform.system() == 'Windows'
         
         options = ChromeOptions()
@@ -42,7 +39,6 @@ class GoogleMapsScraper:
         options.add_experimental_option("excludeSwitches", ["enable-automation"])
         options.add_experimental_option('useAutomationExtension', False)
         
-        # Windows-compatible user agent
         if is_windows:
             options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
         else:
@@ -51,90 +47,13 @@ class GoogleMapsScraper:
         if CHROME_BINARY_PATH and os.path.exists(CHROME_BINARY_PATH):
             options.binary_location = CHROME_BINARY_PATH
         
-        driver_path = self._get_chromedriver()
-        service = ChromeService(driver_path)
+        service = ChromeService(ChromeDriverManager().install())
         driver = webdriver.Chrome(service=service, options=options)
         driver.implicitly_wait(IMPLICIT_WAIT)
         driver.set_page_load_timeout(PAGE_LOAD_TIMEOUT)
         return driver
     
-    def _get_chromedriver(self):
-        import os
-        import subprocess
-        import shutil
-        import platform
-        
-        is_windows = platform.system() == 'Windows'
-        driver_dir = os.path.expanduser('~/.chromedriver')
-        driver_name = 'chromedriver.exe' if is_windows else 'chromedriver'
-        driver_path = os.path.join(driver_dir, driver_name)
-        
-        # Get Chrome version
-        if is_windows:
-            chrome_paths = [
-                'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-                'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-                os.path.expanduser('~\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe')
-            ]
-            chrome_path = next((p for p in chrome_paths if os.path.exists(p)), None)
-            if not chrome_path:
-                raise Exception("Chrome not found. Please install Google Chrome.")
-        else:
-            chrome_path = CHROME_BINARY_PATH or '/usr/bin/google-chrome'
-        
-        try:
-            result = subprocess.run([chrome_path, '--version'], capture_output=True, text=True, shell=is_windows)
-            chrome_version = result.stdout.strip().split()[-1].split('.')[0]
-        except Exception as e:
-            raise Exception(f"Failed to get Chrome version: {e}")
-        
-        # Check if we have the right driver
-        if os.path.exists(driver_path):
-            try:
-                result = subprocess.run([driver_path, '--version'], capture_output=True, text=True, shell=is_windows)
-                if chrome_version in result.stdout:
-                    return driver_path
-            except:
-                pass
-            try:
-                os.remove(driver_path)
-            except:
-                pass
-        
-        os.makedirs(driver_dir, exist_ok=True)
-        
-        # Get latest version for this major version
-        versions_url = f'https://googlechromelabs.github.io/chrome-for-testing/latest-versions-per-milestone-with-downloads.json'
-        response = requests.get(versions_url)
-        data = response.json()
-        version = data['milestones'][chrome_version]['version']
-        
-        # Download for correct platform
-        if is_windows:
-            url = f'https://storage.googleapis.com/chrome-for-testing-public/{version}/win64/chromedriver-win64.zip'
-            folder_name = 'chromedriver-win64'
-        else:
-            url = f'https://storage.googleapis.com/chrome-for-testing-public/{version}/linux64/chromedriver-linux64.zip'
-            folder_name = 'chromedriver-linux64'
-        
-        zip_path = os.path.join(driver_dir, 'chromedriver.zip')
-        response = requests.get(url, stream=True)
-        with open(zip_path, 'wb') as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                f.write(chunk)
-        
-        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-            zip_ref.extractall(driver_dir)
-        
-        extracted_driver = os.path.join(driver_dir, folder_name, driver_name)
-        shutil.move(extracted_driver, driver_path)
-        if not is_windows:
-            os.chmod(driver_path, stat.S_IRWXU)
-        os.remove(zip_path)
-        shutil.rmtree(os.path.join(driver_dir, folder_name), ignore_errors=True)
-        
-        return driver_path
-    
+
     def _setup_firefox(self, headless):
         raise Exception("Firefox not supported. Use Chrome.")
     
