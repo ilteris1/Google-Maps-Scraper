@@ -143,7 +143,7 @@ class YandexMapsScraper:
         except Exception as e:
             return []
     
-    def extract_place_data(self, url):
+    def extract_place_data(self, url, city=None, country=None):
         try:
             self.driver.get(url)
             time.sleep(1)
@@ -152,12 +152,21 @@ class YandexMapsScraper:
             self.driver.execute_script("window.scrollTo(0, 500);")
             time.sleep(0.5)
             
+            address = self._safe_extract(self._get_address)
+            
+            # Filter by city - skip if address doesn't contain the city name
+            if city and address:
+                city_lower = city.lower()
+                address_lower = address.lower()
+                if city_lower not in address_lower:
+                    return None
+            
             data = {
                 'title': self._safe_extract(self._get_title),
                 'rating': self._safe_extract(self._get_rating),
                 'reviews': self._safe_extract(self._get_reviews),
                 'category': self._safe_extract(self._get_category),
-                'address': self._safe_extract(self._get_address),
+                'address': address,
                 'website': self._safe_extract(self._get_website),
                 'phone': self._safe_extract(self._get_phone),
                 'link': url

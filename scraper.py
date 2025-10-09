@@ -75,19 +75,30 @@ class GoogleMapsScraper:
                 'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
                 os.path.expanduser('~\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe')
             ]
-            chrome_path = next((p for p in chrome_paths if os.path.exists(p)), chrome_paths[0])
+            chrome_path = next((p for p in chrome_paths if os.path.exists(p)), None)
+            if not chrome_path:
+                raise Exception("Chrome not found. Please install Google Chrome.")
         else:
             chrome_path = CHROME_BINARY_PATH or '/usr/bin/google-chrome'
         
-        result = subprocess.run([chrome_path, '--version'], capture_output=True, text=True)
-        chrome_version = result.stdout.strip().split()[-1].split('.')[0]
+        try:
+            result = subprocess.run([chrome_path, '--version'], capture_output=True, text=True, shell=is_windows)
+            chrome_version = result.stdout.strip().split()[-1].split('.')[0]
+        except Exception as e:
+            raise Exception(f"Failed to get Chrome version: {e}")
         
         # Check if we have the right driver
         if os.path.exists(driver_path):
-            result = subprocess.run([driver_path, '--version'], capture_output=True, text=True)
-            if chrome_version in result.stdout:
-                return driver_path
-            os.remove(driver_path)
+            try:
+                result = subprocess.run([driver_path, '--version'], capture_output=True, text=True, shell=is_windows)
+                if chrome_version in result.stdout:
+                    return driver_path
+            except:
+                pass
+            try:
+                os.remove(driver_path)
+            except:
+                pass
         
         os.makedirs(driver_dir, exist_ok=True)
         

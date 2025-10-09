@@ -30,6 +30,54 @@ def list_csv_files():
 def generate_markdown(csv_file):
     df = pd.read_csv(csv_file)
     
+    print(f"\n{Fore.YELLOW}Select language for labels:{Style.RESET_ALL}")
+    print(f"{Fore.GREEN}1.{Style.RESET_ALL} English")
+    print(f"{Fore.GREEN}2.{Style.RESET_ALL} Turkish")
+    
+    while True:
+        try:
+            lang_choice = int(input(f"\n{Fore.CYAN}Select (1-2): {Style.RESET_ALL}"))
+            if lang_choice in [1, 2]:
+                break
+        except ValueError:
+            pass
+        print(f"{Fore.RED}Invalid choice.{Style.RESET_ALL}")
+    
+    if lang_choice == 1:
+        labels = {
+            'header': '# 📋 Business Directory',
+            'source': 'Source',
+            'generated': 'Generated',
+            'total': 'Total Records',
+            'rating': 'Rating',
+            'reviews': 'reviews',
+            'category': 'Category',
+            'phone': 'Phone',
+            'address': 'Address',
+            'city': 'City',
+            'website': 'Website',
+            'map': 'Map',
+            'view_map': 'View on Map',
+            'source_label': 'Source'
+        }
+    else:
+        labels = {
+            'header': '# 📋 İşletme Rehberi',
+            'source': 'Kaynak',
+            'generated': 'Oluşturulma',
+            'total': 'Toplam Kayıt',
+            'rating': 'Değerlendirme',
+            'reviews': 'yorum',
+            'category': 'Kategori',
+            'phone': 'Telefon',
+            'address': 'Adres',
+            'city': 'Şehir',
+            'website': 'Web Sitesi',
+            'map': 'Harita',
+            'view_map': 'Haritada Görüntüle',
+            'source_label': 'Kaynak'
+        }
+    
     print(f"\n{Fore.YELLOW}Generating Markdown file...{Style.RESET_ALL}")
     
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -37,10 +85,10 @@ def generate_markdown(csv_file):
     
     with open(md_file, 'w', encoding='utf-8') as f:
         # Header
-        f.write(f"# 📋 Business Directory\n\n")
-        f.write(f"**Source:** {csv_file}  \n")
-        f.write(f"**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}  \n")
-        f.write(f"**Total Records:** {len(df)}\n\n")
+        f.write(f"{labels['header']}\n\n")
+        f.write(f"**{labels['source']}:** {csv_file}  \n")
+        f.write(f"**{labels['generated']}:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}  \n")
+        f.write(f"**{labels['total']}:** {len(df)}\n\n")
         f.write("---\n\n")
         
         # Business listings
@@ -51,37 +99,37 @@ def generate_markdown(csv_file):
             try:
                 rating = float(str(row.get('rating', '0')).replace(',', '.'))
                 reviews = row.get('reviews', '0')
-                f.write(f"⭐ **Rating:** {rating} ({reviews} reviews)  \n")
+                f.write(f"⭐ **{labels['rating']}:** {rating} ({reviews} {labels['reviews']})  \n")
             except:
                 pass
             
             # Category
             if pd.notna(row.get('category')):
-                f.write(f"📂 **Category:** {row.get('category')}  \n")
+                f.write(f"📂 **{labels['category']}:** {row.get('category')}  \n")
             
             # Phone
             if pd.notna(row.get('phone')):
-                f.write(f"📞 **Phone:** {row.get('phone')}  \n")
+                f.write(f"📞 **{labels['phone']}:** {row.get('phone')}  \n")
             
             # Address
             if pd.notna(row.get('address')):
-                f.write(f"📍 **Address:** {row.get('address')}  \n")
+                f.write(f"📍 **{labels['address']}:** {row.get('address')}  \n")
             
             # City
             if pd.notna(row.get('city')):
-                f.write(f"🏙️ **City:** {row.get('city')}, {row.get('country', '')}  \n")
+                f.write(f"🏙️ **{labels['city']}:** {row.get('city')}, {row.get('country', '')}  \n")
             
             # Website
             if pd.notna(row.get('website')):
-                f.write(f"🌐 **Website:** [{row.get('website')}]({row.get('website')})  \n")
+                f.write(f"🌐 **{labels['website']}:** [{row.get('website')}]({row.get('website')})  \n")
             
             # Map Link
             if pd.notna(row.get('link')):
-                f.write(f"🗺️ **Map:** [View on Map]({row.get('link')})  \n")
+                f.write(f"🗺️ **{labels['map']}:** [{labels['view_map']}]({row.get('link')})  \n")
             
             # Source
             if pd.notna(row.get('source')):
-                f.write(f"🔍 **Source:** {row.get('source')}  \n")
+                f.write(f"🔍 **{labels['source_label']}:** {row.get('source')}  \n")
             
             f.write("\n---\n\n")
     

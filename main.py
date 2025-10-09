@@ -1,4 +1,5 @@
 import pandas as pd
+import glob
 from datetime import datetime
 from colorama import Fore, Style, init
 from tqdm import tqdm
@@ -178,8 +179,68 @@ def save_data(data, format_choice, country_name, first_query):
         df.to_json(json_file, orient='records', indent=2, force_ascii=False)
         print(f"{Fore.GREEN}✓ Saved: {json_file} ({len(data)} records){Style.RESET_ALL}")
 
+def select_mode():
+    print(f"{Fore.YELLOW}Select mode:{Style.RESET_ALL}")
+    print(f"{Fore.GREEN}1.{Style.RESET_ALL} Start new research")
+    print(f"{Fore.GREEN}2.{Style.RESET_ALL} Continue from existing CSV")
+    
+    while True:
+        try:
+            choice = int(input(f"\n{Fore.CYAN}Select (1-2): {Style.RESET_ALL}"))
+            if choice in [1, 2]:
+                return choice
+        except ValueError:
+            pass
+        print(f"{Fore.RED}Invalid choice.{Style.RESET_ALL}")
+
+def load_existing_csv():
+    csv_files = glob.glob("*.csv")
+    if not csv_files:
+        print(f"{Fore.RED}No CSV files found. Starting new research.{Style.RESET_ALL}")
+        return None, set(), set()
+    
+    print(f"\n{Fore.YELLOW}Available CSV files:{Style.RESET_ALL}")
+    for idx, file in enumerate(csv_files, 1):
+        print(f"{Fore.GREEN}{idx}.{Style.RESET_ALL} {file}")
+    
+    while True:
+        try:
+            choice = int(input(f"\n{Fore.CYAN}Select file (1-{len(csv_files)}): {Style.RESET_ALL}"))
+            if 1 <= choice <= len(csv_files):
+                selected_file = csv_files[choice - 1]
+                df = pd.read_csv(selected_file)
+                
+                # Extract seen businesses and links
+                seen_businesses = set()
+                seen_links = set()
+                
+                for _, row in df.iterrows():
+                    unique_key = f"{row.get('title', '')}|{row.get('phone', '')}|{row.get('address', '')}"
+                    seen_businesses.add(unique_key)
+                    if pd.notna(row.get('link')):
+                        seen_links.add(row.get('link'))
+                
+                print(f"\n{Fore.GREEN}✓ Loaded {len(df)} existing records{Style.RESET_ALL}")
+                print(f"{Fore.CYAN}New results will be added to this dataset{Style.RESET_ALL}")
+                
+                return df.to_dict('records'), seen_businesses, seen_links
+        except ValueError:
+            pass
+        print(f"{Fore.RED}Invalid choice.{Style.RESET_ALL}")
+
 def main():
     print_banner()
+    
+    mode = select_mode()
+    
+    if mode == 2:
+        existing_data, existing_businesses, existing_links = load_existing_csv()
+        if existing_data is None:
+            mode = 1
+    else:
+        existing_data = []
+        existing_businesses = set()
+        existing_links = set()
     
     map_service = select_map_service()
     
@@ -203,9 +264,9 @@ def main():
     
     input(f"\n{Fore.GREEN}Press Enter to start...{Style.RESET_ALL}")
     
-    all_data = []
-    seen_links = set()
-    seen_businesses = set()  # Track exact duplicates by title+phone+address
+    all_data = existing_data if mode == 2 else []
+    seen_links = existing_links if mode == 2 else set()
+    seen_businesses = existing_businesses if mode == 2 else set()
     
     # Determine which scrapers to use
     scrapers_to_use = []
@@ -238,7 +299,10 @@ def main():
                         print(f"Found {len(new_links)} new places")
                         
                         for link in tqdm(new_links, desc=f"{city}", leave=False, colour="blue"):
-                            place_data = scraper.extract_place_data(link)
+                            if service_name == 'Yandex':
+                                place_data = scraper.extract_place_data(link, city=city, country=country_name)
+                            else:
+                                place_data = scraper.extract_place_data(link)
                             if place_data:
                                 # Create unique key from title+phone+address
                                 unique_key = f"{place_data.get('title', '')}|{place_data.get('phone', '')}|{place_data.get('address', '')}"
