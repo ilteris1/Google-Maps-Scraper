@@ -30,22 +30,23 @@ class GoogleMapsScraper:
     
     def _setup_chrome(self, headless):
         import os
-        import subprocess
+        import platform
+        is_windows = platform.system() == 'Windows'
+        
         options = ChromeOptions()
         if headless:
             options.add_argument('--headless=new')
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
-        options.add_argument('--disable-gpu')
-        options.add_argument('--disable-software-rasterizer')
-        options.add_argument('--disable-extensions')
-        options.add_argument('--disable-images')
-        options.add_argument('--blink-settings=imagesEnabled=false')
         options.add_argument('--disable-blink-features=AutomationControlled')
-        options.add_argument('--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36')
         options.add_experimental_option("excludeSwitches", ["enable-automation"])
         options.add_experimental_option('useAutomationExtension', False)
-        options.add_experimental_option('prefs', {'profile.managed_default_content_settings.images': 2})
+        
+        # Windows-compatible user agent
+        if is_windows:
+            options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+        else:
+            options.add_argument('--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36')
         
         if CHROME_BINARY_PATH and os.path.exists(CHROME_BINARY_PATH):
             options.binary_location = CHROME_BINARY_PATH
@@ -143,18 +144,23 @@ class GoogleMapsScraper:
         
         try:
             self.driver.get(url)
-            time.sleep(1)
+            time.sleep(2)
             self._scroll_results()
             links = self._extract_place_links()
             if MAX_PLACES_PER_CITY:
                 return links[:MAX_PLACES_PER_CITY]
             return links
         except Exception as e:
+            print(f"Search error: {e}")
             return []
     
     def _scroll_results(self):
+        from selenium.webdriver.support.ui import WebDriverWait
+        from selenium.webdriver.support import expected_conditions as EC
+        
         try:
-            scrollable_div = self.driver.find_element(By.CSS_SELECTOR, 'div[role="feed"]')
+            wait = WebDriverWait(self.driver, 10)
+            scrollable_div = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[role="feed"]')))
             last_height = self.driver.execute_script("return arguments[0].scrollHeight", scrollable_div)
             
             for _ in range(MAX_SCROLL_ATTEMPTS):
@@ -181,15 +187,25 @@ class GoogleMapsScraper:
         return links
     
     def extract_place_data(self, url):
+        from selenium.webdriver.support.ui import WebDriverWait
+        from selenium.webdriver.support import expected_conditions as EC
+        
         max_retries = 2
         for attempt in range(max_retries):
             try:
                 self.driver.get(url)
                 time.sleep(EXTRACT_WAIT_TIME)
                 
+                # Wait for page to load
+                try:
+                    wait = WebDriverWait(self.driver, 10)
+                    wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'h1.DUwDvf')))
+                except:
+                    pass
+                
                 try:
                     self.driver.execute_script("window.scrollTo(0, 300);")
-                    time.sleep(0.2)
+                    time.sleep(0.3)
                 except:
                     pass
                 
