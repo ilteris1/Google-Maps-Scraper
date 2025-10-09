@@ -56,32 +56,69 @@ def select_country(geo):
             pass
         print(f"{Fore.RED}Invalid choice.{Style.RESET_ALL}")
 
-def get_city_count():
+def get_cities_selection(geo, country_code, country_name):
+    print(f"\n{Fore.YELLOW}City Selection:{Style.RESET_ALL}")
+    print(f"{Fore.GREEN}1.{Style.RESET_ALL} Enter number of top cities (by population)")
+    print(f"{Fore.GREEN}2.{Style.RESET_ALL} Manually select from top 30 cities")
+    
     while True:
         try:
-            count = int(input(f"\n{Fore.CYAN}How many top cities to scrape? (1-100): {Style.RESET_ALL}"))
-            if 1 <= count <= 100:
-                return count
-            print(f"{Fore.RED}Enter a number between 1 and 100.{Style.RESET_ALL}")
+            choice = int(input(f"\n{Fore.CYAN}Select (1-2): {Style.RESET_ALL}"))
+            if choice in [1, 2]:
+                break
         except ValueError:
-            print(f"{Fore.RED}Please enter a valid number.{Style.RESET_ALL}")
+            pass
+        print(f"{Fore.RED}Invalid choice.{Style.RESET_ALL}")
+    
+    if choice == 1:
+        while True:
+            try:
+                count = int(input(f"\n{Fore.CYAN}How many top cities? (1-100): {Style.RESET_ALL}"))
+                if 1 <= count <= 100:
+                    return geo.get_top_cities(country_code, count)
+                print(f"{Fore.RED}Enter a number between 1 and 100.{Style.RESET_ALL}")
+            except ValueError:
+                print(f"{Fore.RED}Please enter a valid number.{Style.RESET_ALL}")
+    else:
+        top_cities = geo.get_top_cities(country_code, 30)
+        if not top_cities:
+            print(f"{Fore.RED}No cities found.{Style.RESET_ALL}")
+            return []
+        
+        print(f"\n{Fore.YELLOW}Top 30 cities in {country_name}:{Style.RESET_ALL}")
+        for idx, city in enumerate(top_cities, 1):
+            print(f"{Fore.GREEN}{idx:2d}.{Style.RESET_ALL} {city}")
+        
+        print(f"\n{Fore.CYAN}Enter city numbers separated by comma (e.g., 1,3,5,7) or 'all' for all 30:{Style.RESET_ALL}")
+        selection = input(f"{Fore.CYAN}> {Style.RESET_ALL}").strip()
+        
+        if selection.lower() == 'all':
+            return top_cities
+        
+        try:
+            indices = [int(x.strip()) for x in selection.split(',')]
+            selected = [top_cities[i-1] for i in indices if 1 <= i <= len(top_cities)]
+            if selected:
+                print(f"\n{Fore.GREEN}Selected {len(selected)} cities{Style.RESET_ALL}")
+                return selected
+            print(f"{Fore.RED}No valid cities selected.{Style.RESET_ALL}")
+            return []
+        except:
+            print(f"{Fore.RED}Invalid input.{Style.RESET_ALL}")
+            return []
 
 def get_search_query():
-    print(f"\n{Fore.YELLOW}Enter search queries (one per line, Enter twice to finish):{Style.RESET_ALL}")
-    print(f"{Fore.CYAN}Tip: Use specific terms for better results{Style.RESET_ALL}")
-    print(f"{Fore.CYAN}Example: 'diesel repair shop', 'diesel mechanic', 'ремонт дизеля'{Style.RESET_ALL}\n")
+    print(f"\n{Fore.YELLOW}Enter search queries (comma-separated):{Style.RESET_ALL}")
+    print(f"{Fore.CYAN}Example: diesel repair shop, diesel mechanic, ремонт дизеля{Style.RESET_ALL}\n")
     
-    queries = []
     while True:
-        query = input(f"{Fore.CYAN}Query {len(queries)+1} (or Enter to finish): {Style.RESET_ALL}").strip()
-        if not query:
+        input_text = input(f"{Fore.CYAN}Queries: {Style.RESET_ALL}").strip()
+        if input_text:
+            queries = [q.strip() for q in input_text.split(',') if q.strip()]
             if queries:
-                break
-            print(f"{Fore.RED}Enter at least one query{Style.RESET_ALL}")
-            continue
-        queries.append(query)
-    
-    return queries
+                print(f"\n{Fore.GREEN}✓ {len(queries)} queries entered{Style.RESET_ALL}")
+                return queries
+        print(f"{Fore.RED}Enter at least one query{Style.RESET_ALL}")
 
 def select_output_format():
     print(f"\n{Fore.YELLOW}Output format:{Style.RESET_ALL}")
@@ -149,9 +186,7 @@ def main():
     geo = GeoDataManager()
     
     country_name, country_code = select_country(geo)
-    city_count = get_city_count()
-    
-    cities = geo.get_top_cities(country_code, city_count)
+    cities = get_cities_selection(geo, country_code, country_name)
     
     if not cities:
         print(f"{Fore.RED}No cities found for {country_name}. Try another country.{Style.RESET_ALL}")

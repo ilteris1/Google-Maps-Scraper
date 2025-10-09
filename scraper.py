@@ -132,7 +132,7 @@ class GoogleMapsScraper:
         
         try:
             self.driver.get(url)
-            time.sleep(1.5)
+            time.sleep(1)
             self._scroll_results()
             links = self._extract_place_links()
             if MAX_PLACES_PER_CITY:
@@ -178,7 +178,7 @@ class GoogleMapsScraper:
                 
                 try:
                     self.driver.execute_script("window.scrollTo(0, 300);")
-                    time.sleep(0.3)
+                    time.sleep(0.2)
                 except:
                     pass
                 

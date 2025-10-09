@@ -99,7 +99,7 @@ class YandexMapsScraper:
         
         try:
             self.driver.get(url)
-            time.sleep(3)
+            time.sleep(2)
             self._scroll_results()
             return self._extract_place_links()
         except Exception as e:
@@ -146,10 +146,11 @@ class YandexMapsScraper:
     def extract_place_data(self, url):
         try:
             self.driver.get(url)
-            time.sleep(EXTRACT_WAIT_TIME)
+            time.sleep(1)
             
-            self.driver.execute_script("window.scrollTo(0, 300);")
-            time.sleep(0.3)
+            # Scroll to load all content
+            self.driver.execute_script("window.scrollTo(0, 500);")
+            time.sleep(0.5)
             
             data = {
                 'title': self._safe_extract(self._get_title),
@@ -172,10 +173,18 @@ class YandexMapsScraper:
             return None
     
     def _get_title(self):
-        selectors = ['h1.orgpage-header-view__header', 'h1[class*="title"]']
+        selectors = [
+            'h1.orgpage-header-view__header',
+            'h1[class*="title"]',
+            'div[class*="card-title-view"] h1',
+            'span[class*="card-title"]'
+        ]
         for selector in selectors:
             try:
-                return self.driver.find_element(By.CSS_SELECTOR, selector).text
+                elem = self.driver.find_element(By.CSS_SELECTOR, selector)
+                text = elem.text.strip()
+                if text:
+                    return text
             except:
                 continue
         return None
@@ -214,11 +223,17 @@ class YandexMapsScraper:
         return None
     
     def _get_address(self):
-        selectors = ['a[class*="address"]', 'div[class*="address"]', 'span[class*="address"]']
+        selectors = [
+            'div[class*="business-card-address"]',
+            'a[class*="address"]',
+            'div[class*="address"] span',
+            'span[itemprop="address"]',
+            'div[class*="contacts"] div[class*="address"]'
+        ]
         for selector in selectors:
             try:
                 elem = self.driver.find_element(By.CSS_SELECTOR, selector)
-                text = elem.text
+                text = elem.text.strip()
                 if text and len(text) > 10:
                     return text
             except:
@@ -226,28 +241,66 @@ class YandexMapsScraper:
         return None
     
     def _get_website(self):
-        selectors = ['a[class*="link"][href*="http"]', 'a[class*="website"]']
-        for selector in selectors:
-            try:
-                links = self.driver.find_elements(By.CSS_SELECTOR, selector)
-                for link in links:
-                    href = link.get_attribute('href')
-                    if href and 'yandex' not in href and 'http' in href:
-                        return href
-            except:
-                continue
+        # Look for actual website links, not social media
+        try:
+            # Find all links in business card
+            links = self.driver.find_elements(By.CSS_SELECTOR, 'a[href^="http"]')
+            for link in links:
+                href = link.get_attribute('href')
+                if not href:
+                    continue
+                
+                # Skip Yandex internal links
+                if 'yandex' in href.lower():
+                    continue
+                
+                # Skip social media - prioritize real websites
+                if any(social in href.lower() for social in ['instagram', 'facebook', 'vk.com', 'twitter', 'telegram']):
+                    continue
+                
+                # This is likely a real website
+                return href
+            
+            # If no real website found, return social media as fallback
+            for link in links:
+                href = link.get_attribute('href')
+                if href and 'yandex' not in href.lower() and 'http' in href:
+                    return href
+        except:
+            pass
         return None
     
     def _get_phone(self):
-        selectors = ['a[href^="tel:"]', 'span[class*="phone"]', 'div[class*="phone"]']
+        # Try tel: links first
+        try:
+            tel_links = self.driver.find_elements(By.CSS_SELECTOR, 'a[href^="tel:"]')
+            for link in tel_links:
+                phone = link.get_attribute('href').replace('tel:', '').strip()
+                if phone:
+                    return phone
+        except:
+            pass
+        
+        # Try phone containers
+        selectors = [
+            'div[class*="business-contacts-phone"]',
+            'div[class*="phone"] span',
+            'span[class*="phone"]',
+            'div[itemprop="telephone"]'
+        ]
+        
         for selector in selectors:
             try:
-                elem = self.driver.find_element(By.CSS_SELECTOR, selector)
-                if selector.startswith('a[href^="tel:"]'):
-                    return elem.get_attribute('href').replace('tel:', '')
-                text = elem.text
-                if text and ('+' in text or any(c.isdigit() for c in text)):
-                    return text
+                elems = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                for elem in elems:
+                    text = elem.text.strip()
+                    # Clean up - remove button text like "Telefonu göster"
+                    if text and ('+' in text or any(c.isdigit() for c in text)):
+                        # Remove common button texts
+                        text = text.replace('Telefonu göster', '').replace('Show phone', '').replace('Показать телефон', '').strip()
+                        # Only return if it still has digits
+                        if any(c.isdigit() for c in text):
+                            return text
             except:
                 continue
         return None
