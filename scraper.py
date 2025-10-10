@@ -26,7 +26,6 @@ class GoogleMapsScraper:
     def _setup_chrome(self, headless):
         import os
         import platform
-        from webdriver_manager.chrome import ChromeDriverManager
         
         is_windows = platform.system() == 'Windows'
         
@@ -47,8 +46,14 @@ class GoogleMapsScraper:
         if CHROME_BINARY_PATH and os.path.exists(CHROME_BINARY_PATH):
             options.binary_location = CHROME_BINARY_PATH
         
-        service = ChromeService(ChromeDriverManager().install())
-        driver = webdriver.Chrome(service=service, options=options)
+        # Try auto-detection first (works on Windows), fallback to webdriver-manager
+        try:
+            driver = webdriver.Chrome(options=options)
+        except:
+            from webdriver_manager.chrome import ChromeDriverManager
+            service = ChromeService(ChromeDriverManager().install())
+            driver = webdriver.Chrome(service=service, options=options)
+        
         driver.implicitly_wait(IMPLICIT_WAIT)
         driver.set_page_load_timeout(PAGE_LOAD_TIMEOUT)
         return driver
