@@ -265,8 +265,8 @@ def main():
     input(f"\n{Fore.GREEN}Press Enter to start...{Style.RESET_ALL}")
     
     all_data = existing_data if mode == 2 else []
-    seen_links = existing_links if mode == 2 else set()
     seen_businesses = existing_businesses if mode == 2 else set()
+    seen_links = set()  # Always track links to skip duplicates across queries
     
     # Determine which scrapers to use
     scrapers_to_use = []
@@ -276,7 +276,6 @@ def main():
         scrapers_to_use = [('Yandex', YandexMapsScraper)]
     else:  # Both
         scrapers_to_use = [('Google', GoogleMapsScraper), ('Yandex', YandexMapsScraper)]
-        seen_links = None  # Don't filter duplicates when using Both
     
     try:
         for service_name, ScraperClass in scrapers_to_use:
@@ -296,15 +295,19 @@ def main():
                             new_links = [link for link in place_links if link not in seen_links]
                         else:
                             new_links = place_links
-                        print(f"Found {len(new_links)} new places")
+                        print(f"Found {len(place_links)} places, {len(new_links)} new")
                         
+                        new_count = 0
                         for link in tqdm(new_links, desc=f"{city}", leave=False, colour="blue"):
+                            if seen_links is not None:
+                                seen_links.add(link)
+                            
                             if service_name == 'Yandex':
                                 place_data = scraper.extract_place_data(link, city=city, country=country_name)
                             else:
                                 place_data = scraper.extract_place_data(link)
+                            
                             if place_data:
-                                # Create unique key from title+phone+address
                                 unique_key = f"{place_data.get('title', '')}|{place_data.get('phone', '')}|{place_data.get('address', '')}"
                                 
                                 if unique_key not in seen_businesses:
@@ -314,12 +317,13 @@ def main():
                                     place_data['source'] = service_name
                                     all_data.append(place_data)
                                     seen_businesses.add(unique_key)
-                                    if seen_links is not None:
-                                        seen_links.add(link)
+                                    new_count += 1
                                 
                                 if len(all_data) % 50 == 0:
                                     save_data(all_data, output_format, country_name, search_queries[0])
                                     print(f"\n{Fore.YELLOW}Auto-saved {len(all_data)} records{Style.RESET_ALL}")
+                        
+                        print(f"{Fore.GREEN}Added {new_count} new businesses{Style.RESET_ALL}")
             finally:
                 scraper.close()
                 print(f"\n{Fore.GREEN}✓ {service_name} completed! Total so far: {len(all_data)}{Style.RESET_ALL}")

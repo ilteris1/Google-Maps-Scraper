@@ -85,7 +85,9 @@ class GoogleMapsScraper:
         try:
             wait = WebDriverWait(self.driver, 10)
             scrollable_div = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, 'div[role="feed"]')))
-            last_height = self.driver.execute_script("return arguments[0].scrollHeight", scrollable_div)
+            
+            no_change_count = 0
+            last_height = 0
             
             for _ in range(MAX_SCROLL_ATTEMPTS):
                 self.driver.execute_script("arguments[0].scrollTop = arguments[0].scrollHeight", scrollable_div)
@@ -93,7 +95,11 @@ class GoogleMapsScraper:
                 new_height = self.driver.execute_script("return arguments[0].scrollHeight", scrollable_div)
                 
                 if new_height == last_height:
-                    break
+                    no_change_count += 1
+                    if no_change_count >= 3:
+                        break
+                else:
+                    no_change_count = 0
                 last_height = new_height
         except Exception as e:
             print(f"Scroll error: {e}")
