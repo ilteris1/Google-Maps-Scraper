@@ -74,7 +74,7 @@ def get_cities_selection(geo, country_code, country_name):
             print(f"{Fore.RED}Invalid choice.{Style.RESET_ALL}")
         
         if choice == 1:
-            return get_state_selection()
+            return get_state_selection(geo)
     
     print(f"\n{Fore.YELLOW}City Selection:{Style.RESET_ALL}")
     print(f"{Fore.GREEN}1.{Style.RESET_ALL} Enter number of top cities (by population)")
@@ -126,7 +126,7 @@ def get_cities_selection(geo, country_code, country_name):
             print(f"{Fore.RED}Invalid input.{Style.RESET_ALL}")
             return []
 
-def get_state_selection():
+def get_state_selection(geo):
     states = [
         'Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado', 'Connecticut', 'Delaware',
         'Florida', 'Georgia', 'Hawaii', 'Idaho', 'Illinois', 'Indiana', 'Iowa', 'Kansas', 'Kentucky',
@@ -144,20 +144,45 @@ def get_state_selection():
     print(f"\n{Fore.CYAN}Enter state numbers separated by comma (e.g., 1,5,10) or 'all' for all states:{Style.RESET_ALL}")
     selection = input(f"{Fore.CYAN}> {Style.RESET_ALL}").strip()
     
+    selected_states = []
     if selection.lower() == 'all':
-        return states
+        selected_states = states
+    else:
+        try:
+            indices = [int(x.strip()) for x in selection.split(',')]
+            selected_states = [states[i-1] for i in indices if 1 <= i <= len(states)]
+        except:
+            print(f"{Fore.RED}Invalid input.{Style.RESET_ALL}")
+            return []
     
-    try:
-        indices = [int(x.strip()) for x in selection.split(',')]
-        selected = [states[i-1] for i in indices if 1 <= i <= len(states)]
-        if selected:
-            print(f"\n{Fore.GREEN}Selected {len(selected)} states{Style.RESET_ALL}")
-            return selected
+    if not selected_states:
         print(f"{Fore.RED}No valid states selected.{Style.RESET_ALL}")
         return []
-    except:
-        print(f"{Fore.RED}Invalid input.{Style.RESET_ALL}")
-        return []
+    
+    print(f"\n{Fore.GREEN}Selected {len(selected_states)} states{Style.RESET_ALL}")
+    
+    # Get cities per state
+    while True:
+        try:
+            cities_per_state = int(input(f"\n{Fore.CYAN}How many top cities per state? (1-100, or 0 for all): {Style.RESET_ALL}"))
+            if 0 <= cities_per_state <= 100:
+                break
+            print(f"{Fore.RED}Enter a number between 0 and 100.{Style.RESET_ALL}")
+        except ValueError:
+            print(f"{Fore.RED}Please enter a valid number.{Style.RESET_ALL}")
+    
+    if cities_per_state == 0:
+        cities_per_state = 1000  # Get all cities
+    
+    # Get cities for each state
+    all_cities = []
+    for state in selected_states:
+        state_cities = geo.get_cities_by_state('US', state, cities_per_state)
+        print(f"{Fore.CYAN}{state}: {len(state_cities)} cities{Style.RESET_ALL}")
+        all_cities.extend(state_cities)
+    
+    print(f"\n{Fore.GREEN}Total cities to scrape: {len(all_cities)}{Style.RESET_ALL}")
+    return all_cities
 
 def get_search_query():
     print(f"\n{Fore.YELLOW}Enter search queries (comma-separated):{Style.RESET_ALL}")
