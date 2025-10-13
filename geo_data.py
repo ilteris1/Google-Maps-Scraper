@@ -35,6 +35,21 @@ class GeoDataManager:
         countries = self.get_all_countries()
         return [(name, code) for name, code in countries if query in name.lower()]
     
+    def get_all_cities_in_country(self, country_code):
+        """Get all cities in a country sorted by population"""
+        cities = self.gc.get_cities()
+        country_cities = []
+        
+        for city_data in cities.values():
+            if city_data['countrycode'] == country_code:
+                country_cities.append({
+                    'name': city_data['name'],
+                    'population': city_data.get('population', 0)
+                })
+        
+        country_cities.sort(key=lambda x: x['population'], reverse=True)
+        return [city['name'] for city in country_cities]
+    
     def get_cities_by_state(self, country_code, state_name, limit=50):
         """Get all cities for a US state using geonamescache"""
         if country_code != 'US':

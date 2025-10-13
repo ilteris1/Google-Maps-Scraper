@@ -79,15 +79,21 @@ def get_cities_selection(geo, country_code, country_name):
     print(f"\n{Fore.YELLOW}City Selection:{Style.RESET_ALL}")
     print(f"{Fore.GREEN}1.{Style.RESET_ALL} Enter number of top cities (by population)")
     print(f"{Fore.GREEN}2.{Style.RESET_ALL} Manually select from top 100 cities")
+    print(f"{Fore.GREEN}3.{Style.RESET_ALL} All cities in {country_name}")
     
     while True:
         try:
-            choice = int(input(f"\n{Fore.CYAN}Select (1-2): {Style.RESET_ALL}"))
-            if choice in [1, 2]:
+            choice = int(input(f"\n{Fore.CYAN}Select (1-3): {Style.RESET_ALL}"))
+            if choice in [1, 2, 3]:
                 break
         except ValueError:
             pass
         print(f"{Fore.RED}Invalid choice.{Style.RESET_ALL}")
+    
+    if choice == 3:
+        all_cities = geo.get_all_cities_in_country(country_code)
+        print(f"\n{Fore.GREEN}Total cities to scrape: {len(all_cities)}{Style.RESET_ALL}")
+        return all_cities
     
     if choice == 1:
         while True:
