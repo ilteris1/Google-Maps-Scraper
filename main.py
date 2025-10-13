@@ -58,9 +58,27 @@ def select_country(geo):
         print(f"{Fore.RED}Invalid choice.{Style.RESET_ALL}")
 
 def get_cities_selection(geo, country_code, country_name):
+    # Check if US for state selection
+    if country_code == 'US':
+        print(f"\n{Fore.YELLOW}Location Selection for USA:{Style.RESET_ALL}")
+        print(f"{Fore.GREEN}1.{Style.RESET_ALL} Select by states")
+        print(f"{Fore.GREEN}2.{Style.RESET_ALL} Select by cities")
+        
+        while True:
+            try:
+                choice = int(input(f"\n{Fore.CYAN}Select (1-2): {Style.RESET_ALL}"))
+                if choice in [1, 2]:
+                    break
+            except ValueError:
+                pass
+            print(f"{Fore.RED}Invalid choice.{Style.RESET_ALL}")
+        
+        if choice == 1:
+            return get_state_selection()
+    
     print(f"\n{Fore.YELLOW}City Selection:{Style.RESET_ALL}")
     print(f"{Fore.GREEN}1.{Style.RESET_ALL} Enter number of top cities (by population)")
-    print(f"{Fore.GREEN}2.{Style.RESET_ALL} Manually select from top 30 cities")
+    print(f"{Fore.GREEN}2.{Style.RESET_ALL} Manually select from top 100 cities")
     
     while True:
         try:
@@ -74,23 +92,23 @@ def get_cities_selection(geo, country_code, country_name):
     if choice == 1:
         while True:
             try:
-                count = int(input(f"\n{Fore.CYAN}How many top cities? (1-100): {Style.RESET_ALL}"))
-                if 1 <= count <= 100:
+                count = int(input(f"\n{Fore.CYAN}How many top cities? (1-200): {Style.RESET_ALL}"))
+                if 1 <= count <= 200:
                     return geo.get_top_cities(country_code, count)
-                print(f"{Fore.RED}Enter a number between 1 and 100.{Style.RESET_ALL}")
+                print(f"{Fore.RED}Enter a number between 1 and 200.{Style.RESET_ALL}")
             except ValueError:
                 print(f"{Fore.RED}Please enter a valid number.{Style.RESET_ALL}")
     else:
-        top_cities = geo.get_top_cities(country_code, 30)
+        top_cities = geo.get_top_cities(country_code, 100)
         if not top_cities:
             print(f"{Fore.RED}No cities found.{Style.RESET_ALL}")
             return []
         
-        print(f"\n{Fore.YELLOW}Top 30 cities in {country_name}:{Style.RESET_ALL}")
+        print(f"\n{Fore.YELLOW}Top 100 cities in {country_name}:{Style.RESET_ALL}")
         for idx, city in enumerate(top_cities, 1):
             print(f"{Fore.GREEN}{idx:2d}.{Style.RESET_ALL} {city}")
         
-        print(f"\n{Fore.CYAN}Enter city numbers separated by comma (e.g., 1,3,5,7) or 'all' for all 30:{Style.RESET_ALL}")
+        print(f"\n{Fore.CYAN}Enter city numbers separated by comma (e.g., 1,3,5,7) or 'all' for all 100:{Style.RESET_ALL}")
         selection = input(f"{Fore.CYAN}> {Style.RESET_ALL}").strip()
         
         if selection.lower() == 'all':
@@ -107,6 +125,39 @@ def get_cities_selection(geo, country_code, country_name):
         except:
             print(f"{Fore.RED}Invalid input.{Style.RESET_ALL}")
             return []
+
+def get_state_selection():
+    states = [
+        'Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado', 'Connecticut', 'Delaware',
+        'Florida', 'Georgia', 'Hawaii', 'Idaho', 'Illinois', 'Indiana', 'Iowa', 'Kansas', 'Kentucky',
+        'Louisiana', 'Maine', 'Maryland', 'Massachusetts', 'Michigan', 'Minnesota', 'Mississippi',
+        'Missouri', 'Montana', 'Nebraska', 'Nevada', 'New Hampshire', 'New Jersey', 'New Mexico',
+        'New York', 'North Carolina', 'North Dakota', 'Ohio', 'Oklahoma', 'Oregon', 'Pennsylvania',
+        'Rhode Island', 'South Carolina', 'South Dakota', 'Tennessee', 'Texas', 'Utah', 'Vermont',
+        'Virginia', 'Washington', 'West Virginia', 'Wisconsin', 'Wyoming'
+    ]
+    
+    print(f"\n{Fore.YELLOW}US States:{Style.RESET_ALL}")
+    for idx, state in enumerate(states, 1):
+        print(f"{Fore.GREEN}{idx:2d}.{Style.RESET_ALL} {state}")
+    
+    print(f"\n{Fore.CYAN}Enter state numbers separated by comma (e.g., 1,5,10) or 'all' for all states:{Style.RESET_ALL}")
+    selection = input(f"{Fore.CYAN}> {Style.RESET_ALL}").strip()
+    
+    if selection.lower() == 'all':
+        return states
+    
+    try:
+        indices = [int(x.strip()) for x in selection.split(',')]
+        selected = [states[i-1] for i in indices if 1 <= i <= len(states)]
+        if selected:
+            print(f"\n{Fore.GREEN}Selected {len(selected)} states{Style.RESET_ALL}")
+            return selected
+        print(f"{Fore.RED}No valid states selected.{Style.RESET_ALL}")
+        return []
+    except:
+        print(f"{Fore.RED}Invalid input.{Style.RESET_ALL}")
+        return []
 
 def get_search_query():
     print(f"\n{Fore.YELLOW}Enter search queries (comma-separated):{Style.RESET_ALL}")
